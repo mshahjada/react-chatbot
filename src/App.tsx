@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react'
 import FloatingChatWidget from './components/FloatingChatWidget/FloatingChatWidget'
 import type { ApiResponse, Message } from './components/FloatingChatWidget/types'
 import './App.css'
-import { API_CONFIG } from './components/FloatingChatWidget/constants'
 
 function App() {
   const [currentTheme, setCurrentTheme] = useState<'modern' | 'classic' | 'minimal' | 'dark'>('dark')
@@ -10,6 +9,13 @@ function App() {
 
   const handleSendMessage = async (message: Message): Promise<void> => {
     console.log('Message sent:', message)
+    
+    // fetch('https://localhost:7166/api/chat', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ Query: message.content }),
+    // })
+
     try {
       const response = await fetch('https://localhost:7166/api/chat', {
         method: 'POST',
@@ -29,10 +35,14 @@ function App() {
       }
 
       const data: ApiResponse = await response.json()
+      console.log('API Response:', data)
+      
+      // Handle successful response
       if (data!=null) {
         // Add the bot response to the chat
         chatWidgetRef.current?.addBotResponse(data.response)
       } else {
+        // Handle API-level errors
         chatWidgetRef.current?.addBotResponse(
          'Sorry, I encountered an error processing your message.'
         )
@@ -60,83 +70,62 @@ function App() {
     console.log('Received API response:', response)
   }
 
-  function handleOpenChat(event: MouseEvent<HTMLButtonElement, MouseEvent>): void {
-    throw new Error('Function not implemented.')
-  }
-
   return (
     <div className="app">
-      <div className="demo-content">
-        <h1 className="demo-title">🌟 Modular Chat Widget 🌟</h1>
-        <p className="demo-subtitle">
-          A production-ready chat widget built with TypeScript, modular architecture, and best practices
-        </p>
+      {/* Your main website content */}
+      <header className="app-header">
+        <h1>🚀 My React + TypeScript Application</h1>
+        <p>Professional chat widget with Vite, React, and TypeScript</p>
+      </header>
 
-        <div className="demo-features">
-          <h3>🔧 Architecture Features</h3>
-          <ul>
-            <li><strong>Separated Concerns:</strong> Individual TypeScript files for types, constants, utilities, styles, and components</li>
-            <li><strong>Type Safety:</strong> Comprehensive TypeScript interfaces and proper error handling</li>
-            <li><strong>Performance:</strong> Debounced scrolling, memoized callbacks, and optimized re-renders</li>
-            <li><strong>Accessibility:</strong> ARIA labels, keyboard navigation, screen reader support</li>
-            <li><strong>Responsive Design:</strong> Mobile-friendly with adaptive layouts and touch support</li>
-            <li><strong>API Integration:</strong> Timeout handling, retry logic, and proper error states</li>
-            <li><strong>File Uploads:</strong> Drag & drop support with validation and preview</li>
-            <li><strong>Customizable:</strong> Theming, positioning, colors, and behavior options</li>
-          </ul>
-        </div>
-
-        <div className="demo-controls">
-          <h3>🎮 Demo Controls</h3>
-          <div className="demo-buttons">
-            <button className="demo-button" onClick={handleOpenChat}>
-              💬 Open Chat
-            </button>
-            <button className="demo-button" onClick={handleAddTestMessage}>
-              🤖 Add Bot Message
-            </button>
-            <button className="demo-button" onClick={handleTriggerTyping}>
-              ⌨️ Trigger Typing
-            </button>
-            <button className="demo-button" onClick={handleClearChat}>
-              🗑️ Clear Chat
-            </button>
+      <main className="app-main">
+        <div className="feature-grid">
+          <div className="feature-card">
+            <div className="feature-icon">⚡</div>
+            <h3>Vite Powered</h3>
+            <p>Lightning fast development with instant hot reload</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">🔷</div>
+            <h3>TypeScript</h3>
+            <p>Full type safety and excellent developer experience</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">📱</div>
+            <h3>Responsive</h3>
+            <p>Works perfectly on all devices and screen sizes</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">♿</div>
+            <h3>Accessible</h3>
+            <p>Built with accessibility and keyboard navigation in mind</p>
           </div>
         </div>
 
-        <div className="api-status">
-          <h4>📡 API Configuration</h4>
-          <p>
-            The widget is configured to connect to your API endpoint. 
-            Update the API configuration in <code>constants.ts</code>:
-          </p>
-          <div className="api-endpoint">
-            POST {API_CONFIG.baseURL}{API_CONFIG.endpoints.chat}
+        <div className="theme-showcase">
+          <h2>Available Themes</h2>
+          <div className="theme-buttons">
+            <button onClick={() => setCurrentTheme('modern')}>Modern</button>
+            <button onClick={() => setCurrentTheme('classic')}>Classic</button>
+            <button onClick={() => setCurrentTheme('minimal')}>Minimal</button>
+            <button onClick={() => setCurrentTheme('dark')}>Dark</button>
           </div>
-          <p>
-            Expected request format: <code>{'{ Query: string, Files?: FileInfo[] }'}</code><br/>
-            Expected response format: <code>{'{ response: string, success?: boolean, error?: string }'}</code>
-          </p>
+          <p>Current theme: <strong>{currentTheme}</strong></p>
         </div>
-      </div>
+      </main>
 
-      {/* Chat Widget with ref for API integration */}
+      {/* Chat Widget */}
       <FloatingChatWidget
-        ref={chatWidgetRef}
-        title="AI Assistant"
-        subtitle="Powered by modular architecture"
+        title="Hello! I'm your smart assistant"
+        subtitle="Ask me anything related to policy & claims!"
         onSendMessage={handleSendMessage}
         position="bottom-right"
         primaryColor="#6366f1"
+        theme={currentTheme}
         iconSize={60}
-        theme="modern"
-        maxFileSize={10 * 1024 * 1024} // 10MB
-        allowedFileTypes={['*/*']}
-        maxMessages={100}
-        welcomeMessage="👋 Hi! I'm your AI assistant. How can I help you today?"
       />
     </div>
-  );
+  )
 }
 
 export default App

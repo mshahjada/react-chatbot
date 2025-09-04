@@ -1,332 +1,223 @@
-import React, { 
-  useState, 
-  useRef, 
-  useEffect, 
-  useCallback, 
-  useImperativeHandle, 
-  forwardRef 
-} from 'react';
-import type {
-  Message,
-  ChatWidgetRef,
-  ChatWidgetProps
-} from './types';
-import { 
-  DEFAULT_CONFIG, 
-  ERROR_MESSAGES, 
-  ANIMATION_DURATIONS 
-} from './constants';
-import { 
-  formatFileSize, 
-  getRandomResponse, 
-  validateFile, 
-  debounce, 
-  generateId, 
-  sanitizeInput, 
-  getPositionStyles 
-} from './utils';
-import './ChatWidget.css';
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import type { Message, ChatWidgetProps } from './types'
+import './FloatingChatWidget.css'
 
-const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
-  title = DEFAULT_CONFIG.title,
-  subtitle = DEFAULT_CONFIG.subtitle,
+const FloatingChatWidget: React.FC<ChatWidgetProps> = ({ 
+  title = "AI Assistant", 
+  subtitle = "We're here to help!",
   onSendMessage,
   className = "",
-  position = DEFAULT_CONFIG.position,
-  primaryColor = DEFAULT_CONFIG.primaryColor,
-  iconSize = DEFAULT_CONFIG.iconSize,
-  theme = DEFAULT_CONFIG.theme,
-  maxFileSize = DEFAULT_CONFIG.maxFileSize,
-  allowedFileTypes = DEFAULT_CONFIG.allowedFileTypes,
-  maxMessages = DEFAULT_CONFIG.maxMessages,
-  welcomeMessage = DEFAULT_CONFIG.welcomeMessage
-}, ref) => {
-
-  // ==================== STATE MANAGEMENT ====================
-  
-  const [isOpen, setIsOpen] = useState<boolean>(false);
+  position = "bottom-right",
+  primaryColor = "#6366f1",
+  iconSize = 60,
+  theme = "modern"
+}) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       sender: 'bot',
-      content: welcomeMessage,
+      content: '👋 Hi there! How can I help you today?',
       timestamp: new Date(),
       isWelcome: true
     }
-  ]);
-  const [inputValue, setInputValue] = useState<string>('');
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-  const [isTyping, setIsTyping] = useState<boolean>(false);
-  const [messageIdCounter, setMessageIdCounter] = useState<number>(2);
-  const [hasNewMessage, setHasNewMessage] = useState<boolean>(false);
-  const [isMinimizing, setIsMinimizing] = useState<boolean>(false);
+  ])
+  const [inputValue, setInputValue] = useState<string>('')
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const [isTyping, setIsTyping] = useState<boolean>(false)
+  const [messageIdCounter, setMessageIdCounter] = useState<number>(2)
+  const [hasNewMessage, setHasNewMessage] = useState<boolean>(false)
+  const [isMinimizing, setIsMinimizing] = useState<boolean>(false)
 
-  // ==================== REFS ====================
-  
-  const chatMessagesRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const widgetRef = useRef<HTMLDivElement>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const widgetRef = useRef<HTMLDivElement>(null)
 
-  // ==================== UTILITY FUNCTIONS ====================
-  
-  const autoResizeTextarea = useCallback((): void => {
+  // Position styles
+  const getPositionStyles = useCallback((): React.CSSProperties => {
+    const baseStyles: React.CSSProperties = {
+      position: 'fixed',
+      zIndex: 9999,
+    }
+
+    switch (position) {
+      case 'bottom-left':
+        return { ...baseStyles, bottom: '20px', left: '20px' }
+      case 'top-right':
+        return { ...baseStyles, top: '20px', right: '20px' }
+      case 'top-left':
+        return { ...baseStyles, top: '20px', left: '20px' }
+      default:
+        return { ...baseStyles, bottom: '20px', right: '20px' }
+    }
+  }, [position])
+
+  // Auto-resize textarea
+  const autoResizeTextarea = useCallback(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px'
     }
-  }, []);
+  }, [])
 
-  const scrollToBottom = useCallback((): void => {
+  // Scroll to bottom
+  const scrollToBottom = useCallback(() => {
     if (chatMessagesRef.current) {
-      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight
     }
-  }, []);
+  }, [])
 
-  const debouncedScrollToBottom = useCallback(
-    debounce(scrollToBottom, 100),
-    [scrollToBottom]
-  );
+  // Format file size
+  const formatFileSize = useCallback((bytes: number): string => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }, [])
 
-  // ==================== FILE HANDLING ====================
-  
-  const handleFileSelection = useCallback((files: FileList | null): void => {
-    if (!files) return;
+  // Handle file selection
+  const handleFileSelection = useCallback((files: FileList | null) => {
+    if (!files) return
     
-    const validFiles: File[] = [];
-    const errors: string[] = [];
+    const newFiles = Array.from(files).filter(file => 
+      !attachedFiles.some(f => f.name === file.name && f.size === file.size)
+    )
+    setAttachedFiles(prev => [...prev, ...newFiles])
+  }, [attachedFiles])
+
+  // Remove file
+  const removeFile = useCallback((index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index))
+  }, [])
+
+  // Generate bot response
+  const generateBotResponse = useCallback((_userMessage: string): string => {
+    const responses = [
+      "Thanks for your message! I'd be happy to help you with that.",
+      "I understand what you're asking. Let me provide you with some information.",
+      "Great question! Here's what I can tell you about that.",
+      "I'm here to help! Based on your message, I can suggest a few things.",
+      "That's an interesting point. Let me break that down for you."
+    ]
     
-    Array.from(files).forEach(file => {
-      // Check if file already exists
-      if (attachedFiles.some(f => f.name === file.name && f.size === file.size)) {
-        errors.push(`${file.name} is already attached`);
-        return;
-      }
-      
-      // Validate file
-      if (!validateFile(file, maxFileSize, allowedFileTypes)) {
-        if (file.size > maxFileSize) {
-          errors.push(`${file.name} exceeds size limit (${formatFileSize(maxFileSize)})`);
-        } else {
-          errors.push(`${file.name} is not an allowed file type`);
-        }
-        return;
-      }
-      
-      validFiles.push(file);
-    });
-    
-    if (validFiles.length > 0) {
-      setAttachedFiles(prev => [...prev, ...validFiles]);
-    }
-    
-    if (errors.length > 0) {
-      console.warn('File validation errors:', errors);
-      // You could show these errors in the UI if needed
-    }
-  }, [attachedFiles, maxFileSize, allowedFileTypes]);
+    return responses[Math.floor(Math.random() * responses.length)]
+  }, [])
 
-  const removeFile = useCallback((index: number): void => {
-    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
-  }, []);
+  // Send message
+  const sendMessage = useCallback(async () => {
 
-  // ==================== CHAT ACTIONS ====================
-  
-  const addBotResponse = useCallback((content: string): void => {
-    setIsTyping(false);
-    const botResponse: Message = {
-      id: generateId(),
-      sender: 'bot',
-      content: sanitizeInput(content),
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => {
-      const newMessages = [...prev, botResponse];
-      return newMessages.length > maxMessages ? newMessages.slice(-maxMessages) : newMessages;
-    });
-    
-    if (!isOpen) {
-      setHasNewMessage(true);
-    }
-  }, [isOpen, maxMessages]);
+    debugger;
+    const message = inputValue.trim()
+    if (!message && attachedFiles.length === 0) return
 
-  const addErrorResponse = useCallback((errorMessage: string = ERROR_MESSAGES.GENERAL_ERROR): void => {
-    setIsTyping(false);
-    const errorResponse: Message = {
-      id: generateId(),
-      sender: 'bot',
-      content: errorMessage,
-      timestamp: new Date(),
-      isError: true
-    };
-    
-    setMessages(prev => {
-      const newMessages = [...prev, errorResponse];
-      return newMessages.length > maxMessages ? newMessages.slice(-maxMessages) : newMessages;
-    });
-    
-    if (!isOpen) {
-      setHasNewMessage(true);
-    }
-  }, [isOpen, maxMessages]);
-
-  const clearChat = useCallback((): void => {
-    setMessages([{
-      id: 1,
-      sender: 'bot',
-      content: welcomeMessage,
-      timestamp: new Date(),
-      isWelcome: true
-    }]);
-    setMessageIdCounter(2);
-  }, [welcomeMessage]);
-
-  const openChat = useCallback((): void => {
-    setIsOpen(true);
-    setHasNewMessage(false);
-    setTimeout(() => textareaRef.current?.focus(), ANIMATION_DURATIONS.slideIn);
-  }, []);
-
-  const closeChat = useCallback((): void => {
-    setIsMinimizing(true);
-    setTimeout(() => {
-      setIsOpen(false);
-      setIsMinimizing(false);
-    }, ANIMATION_DURATIONS.slideOut);
-  }, []);
-
-  const toggleChat = useCallback((): void => {
-    if (isOpen) {
-      closeChat();
-    } else {
-      openChat();
-    }
-  }, [isOpen, openChat, closeChat]);
-
-  // ==================== MESSAGE SENDING ====================
-  
-  const sendMessage = useCallback(async (): Promise<void> => {
-    const message = sanitizeInput(inputValue);
-    if (!message && attachedFiles.length === 0) return;
-
+    debugger;
     const newUserMessage: Message = {
-      id: generateId(),
+      id: messageIdCounter,
       sender: 'user',
       content: message,
       files: attachedFiles.length > 0 ? [...attachedFiles] : null,
       timestamp: new Date()
-    };
+    }
 
-    // Add user message to chat
-    setMessages(prev => {
-      const newMessages = [...prev, newUserMessage];
-      return newMessages.length > maxMessages ? newMessages.slice(-maxMessages) : newMessages;
-    });
-    
-    setInputValue('');
-    setAttachedFiles([]);
-    setIsTyping(true);
+    setMessages(prev => [...prev, newUserMessage])
+    setMessageIdCounter(prev => prev + 1)
+    setInputValue('')
+    setAttachedFiles([])
 
-    // Handle API call or fallback
     if (onSendMessage) {
-      try {
-        await onSendMessage(newUserMessage);
-      } catch (error) {
-        console.error('Error in onSendMessage:', error);
-        addErrorResponse();
-      }
-    } else {
-      // Fallback: simulate bot response
-      setTimeout(() => {
-        addBotResponse(getRandomResponse());
-      }, ANIMATION_DURATIONS.typing + Math.random() * 2000);
+      onSendMessage(newUserMessage)
     }
-  }, [inputValue, attachedFiles, maxMessages, onSendMessage, addBotResponse, addErrorResponse]);
 
-  // ==================== EVENT HANDLERS ====================
-  
-  const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    setIsTyping(true)
+
+    setTimeout(() => {
+      setIsTyping(false)
+      const botResponse: Message = {
+        id: messageIdCounter + 1,
+        sender: 'bot',
+        content: generateBotResponse(message),
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, botResponse])
+      setMessageIdCounter(prev => prev + 2)
+      
+      if (!isOpen) {
+        setHasNewMessage(true)
+      }
+    }, 1000 + Math.random() * 2000)
+  }, [inputValue, attachedFiles, messageIdCounter, onSendMessage, generateBotResponse, isOpen])
+
+  // Handle key press
+  const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+      e.preventDefault()
+      sendMessage()
     }
-  }, [sendMessage]);
+  }, [sendMessage])
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>): void => {
-    setInputValue(e.target.value);
-    autoResizeTextarea();
-  }, [autoResizeTextarea]);
+  // Handle input change
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputValue(e.target.value)
+    autoResizeTextarea()
+  }, [autoResizeTextarea])
 
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>): void => {
-    handleFileSelection(e.target.files);
-    // Reset the input so the same file can be selected again
-    e.target.value = '';
-  }, [handleFileSelection]);
+  // Toggle chat
+  const toggleChat = useCallback(() => {
+    if (isOpen) {
+      setIsMinimizing(true)
+      setTimeout(() => {
+        setIsOpen(false)
+        setIsMinimizing(false)
+      }, 200)
+    } else {
+      setIsOpen(true)
+      setHasNewMessage(false)
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus()
+        }
+      }, 300)
+    }
+  }, [isOpen])
 
-  // ==================== REF METHODS ====================
-  
-  useImperativeHandle(ref, (): ChatWidgetRef => ({
-    addBotResponse,
-    addErrorResponse,
-    setTyping: setIsTyping,
-    clearChat,
-    openChat,
-    closeChat
-  }), [addBotResponse, addErrorResponse, clearChat, openChat, closeChat]);
-
-  // ==================== EFFECTS ====================
-  
+  // Click outside to close
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent): void => {
+    const handleClickOutside = (event: MouseEvent) => {
       if (widgetRef.current && !widgetRef.current.contains(event.target as Node) && isOpen) {
-        closeChat();
+        toggleChat()
       }
-    };
+    }
 
-    const handleEscapeKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape' && isOpen) {
-        closeChat();
-      }
-    };
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen, toggleChat])
 
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscapeKey);
-    
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscapeKey);
-    };
-  }, [isOpen, closeChat]);
+  // Effects
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, isTyping, scrollToBottom])
 
   useEffect(() => {
-    debouncedScrollToBottom();
-  }, [messages, isTyping, debouncedScrollToBottom]);
-
-  useEffect(() => {
-    autoResizeTextarea();
-  }, [inputValue, autoResizeTextarea]);
+    autoResizeTextarea()
+  }, [inputValue, autoResizeTextarea])
 
   // Set CSS custom properties
   useEffect(() => {
     if (widgetRef.current) {
-      widgetRef.current.style.setProperty('--primary-color', primaryColor);
-      widgetRef.current.style.setProperty('--icon-size', `${iconSize}px`);
+      widgetRef.current.style.setProperty('--primary-color', primaryColor)
+      widgetRef.current.style.setProperty('--icon-size', `${iconSize}px`)
     }
-  }, [primaryColor, iconSize]);
+  }, [primaryColor, iconSize])
 
-  // ==================== COMPUTED VALUES ====================
-  
-  const canSend: boolean = Boolean(sanitizeInput(inputValue)) || attachedFiles.length > 0;
-  const positionStyles = getPositionStyles(position);
+  const canSend = inputValue.trim() || attachedFiles.length > 0
 
-  // ==================== RENDER ====================
-  
   return (
     <div 
       ref={widgetRef}
       className={`chat-widget chat-widget--${theme} ${className}`} 
-      style={positionStyles}
+      style={getPositionStyles()}
     >
       {/* Chat Icon */}
       <button 
@@ -334,59 +225,43 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
         onClick={toggleChat}
         title={isOpen ? 'Close chat' : 'Open chat'}
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
-        aria-expanded={isOpen}
       >
         {isOpen ? '✕' : '💬'}
         {hasNewMessage && !isOpen && (
-          <div className="chat-widget__notification-badge" aria-label="New message">!</div>
+          <div className="chat-widget__notification-badge">!</div>
         )}
       </button>
 
       {/* Chat Popup */}
       {isOpen && (
-        <div 
-          className={`chat-widget__popup ${isMinimizing ? 'chat-widget__popup--minimizing' : ''}`}
-          role="dialog"
-          aria-labelledby="chat-title"
-          aria-describedby="chat-subtitle"
-        >
+        <div className={`chat-widget__popup ${isMinimizing ? 'chat-widget__popup--minimizing' : ''}`}>
           {/* Header */}
           <div className="chat-widget__header">
             <div className="chat-widget__header-content">
-              <div id="chat-title" className="chat-widget__title">{title}</div>
-              <div id="chat-subtitle" className="chat-widget__subtitle">{subtitle}</div>
+              <div className="chat-widget__title">{title}</div>
+              <div className="chat-widget__subtitle">{subtitle}</div>
             </div>
             <button 
               className="chat-widget__close-button" 
-              onClick={closeChat} 
+              onClick={toggleChat} 
               aria-label="Close chat"
-              title="Close chat"
             >
               ✕
             </button>
           </div>
           
           {/* Messages */}
-          <div 
-            className="chat-widget__messages" 
-            ref={chatMessagesRef}
-            role="log"
-            aria-live="polite"
-            aria-label="Chat messages"
-          >
+          <div className="chat-widget__messages" ref={chatMessagesRef}>
             {messages.map((message) => (
-              <div 
-                key={message.id} 
-                className={`chat-widget__message chat-widget__message--${message.sender} ${message.isError ? 'error' : ''}`}
-              >
-                <div className="chat-widget__message-avatar" aria-hidden="true">
+              <div key={message.id} className={`chat-widget__message chat-widget__message--${message.sender}`}>
+                <div className="chat-widget__message-avatar">
                   {message.sender === 'user' ? 'U' : 'AI'}
                 </div>
                 <div className="chat-widget__message-content">
                   {message.content}
                   {message.files && message.files.map((file, index) => (
                     <div key={index} className="chat-widget__file-attachment">
-                      <span className="chat-widget__file-icon" aria-hidden="true">📄</span>
+                      <span className="chat-widget__file-icon">📄</span>
                       <span>{file.name} ({formatFileSize(file.size)})</span>
                     </div>
                   ))}
@@ -396,9 +271,9 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
             
             {isTyping && (
               <div className="chat-widget__message chat-widget__message--bot">
-                <div className="chat-widget__message-avatar" aria-hidden="true">AI</div>
+                <div className="chat-widget__message-avatar">AI</div>
                 <div className="chat-widget__message-content">
-                  <div className="chat-widget__typing-indicator" aria-label="AI is typing">
+                  <div className="chat-widget__typing-indicator">
                     <div className="chat-widget__typing-dot"></div>
                     <div className="chat-widget__typing-dot"></div>
                     <div className="chat-widget__typing-dot"></div>
@@ -414,15 +289,12 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
               <div className="chat-widget__attached-files">
                 {attachedFiles.map((file, index) => (
                   <div key={index} className="chat-widget__attached-file">
-                    <span className="chat-widget__file-icon" aria-hidden="true">📄</span>
-                    <span className="chat-widget__attached-file-name" title={file.name}>
-                      {file.name}
-                    </span>
+                    <span className="chat-widget__file-icon">📄</span>
+                    <span>{file.name}</span>
                     <button 
                       className="chat-widget__remove-file" 
                       onClick={() => removeFile(index)}
-                      title={`Remove ${file.name}`}
-                      aria-label={`Remove ${file.name}`}
+                      title="Remove file"
                       type="button"
                     >
                       ×
@@ -441,26 +313,21 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
                 onChange={handleInputChange}
                 onKeyDown={handleKeyPress}
                 rows={1}
-                aria-label="Message input"
-                disabled={isTyping}
               />
               <div className="chat-widget__input-actions">
                 <button 
                   className="chat-widget__file-button" 
                   onClick={() => fileInputRef.current?.click()}
                   title="Attach file"
-                  aria-label="Attach file"
                   type="button"
-                  disabled={isTyping}
                 >
                   📎
                 </button>
                 <button 
                   className="chat-widget__send-button" 
                   onClick={sendMessage}
-                  disabled={!canSend || isTyping}
+                  disabled={!canSend}
                   title="Send message"
-                  aria-label="Send message"
                   type="button"
                 >
                   ➤
@@ -473,18 +340,14 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
               type="file" 
               className="chat-widget__file-input" 
               multiple 
-              accept={allowedFileTypes.join(',')}
-              onChange={handleFileInputChange}
-              aria-label="File upload"
+              accept="*/*"
+              onChange={(e) => handleFileSelection(e.target.files)}
             />
           </div>
         </div>
       )}
     </div>
-  );
-});
+  )
+}
 
-// Set display name for better debugging
-FloatingChatWidget.displayName = 'FloatingChatWidget';
-
-export default FloatingChatWidget;
+export default FloatingChatWidget
