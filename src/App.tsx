@@ -7,6 +7,7 @@ function App() {
   const [currentTheme, setCurrentTheme] = useState<'modern' | 'classic' | 'minimal' | 'dark'>('dark')
   const chatWidgetRef = useRef<{ addBotResponse: (content: string) => void }>(null)
 
+
   const handleSendMessage = async (message: Message): Promise<void> => {
     console.log('Message sent:', message)
     
@@ -116,6 +117,7 @@ function App() {
 
       {/* Chat Widget */}
       <FloatingChatWidget
+        ref={chatWidgetRef} 
         title="Hello! I'm your smart assistant"
         subtitle="Ask me anything related to policy & claims!"
         onSendMessage={handleSendMessage}
