@@ -1,0 +1,159 @@
+  .app {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .demo-content {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+    color: white;
+    padding-top: 60px;
+  }
+
+  .demo-title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  .demo-subtitle {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+
+  .demo-features {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 2rem;
+    margin: 2rem 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: left;
+  }
+
+  .demo-features h3 {
+    color: #fff;
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+  }
+
+  .demo-features ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .demo-features li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .demo-features li:last-child {
+    border-bottom: none;
+  }
+
+  .demo-features li::before {
+    content: '✨ ';
+    margin-right: 0.5rem;
+  }
+
+  .demo-controls {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin: 2rem 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .demo-controls h3 {
+    margin-bottom: 1rem;
+    color: #fff;
+  }
+
+  .demo-buttons {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .demo-button {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  }
+
+  .demo-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  .demo-button:active {
+    transform: translateY(0);
+  }
+
+  .api-status {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin: 2rem 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .api-status h4 {
+    color: #fff;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+  }
+
+  .api-endpoint {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.85rem;
+    margin: 0.5rem 0;
+    word-break: break-all;
+  }
+
+  @media (max-width: 768px) {
+    .demo-content {
+      padding-top: 40px;
+    }
+    
+    .demo-title {
+      font-size: 2rem;
+    }
+    
+    .demo-buttons {
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .demo-button {
+      width: 100%;
+      max-width: 250px;
+    }
+    
+  }
