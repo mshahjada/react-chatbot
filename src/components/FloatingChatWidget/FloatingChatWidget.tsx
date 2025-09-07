@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle  } from 'react'
-import type { Message, ChatWidgetProps } from './types'
+import type { Message, ChatWidgetProps, ChatWidgetRef } from './types'
 import './FloatingChatWidget.css'
 
-const FloatingChatWidget = forwardRef<{
-  addBotResponse: (content: string) => void
-}, ChatWidgetProps>(({
+// const chatWidgetRef = useRef<ChatWidgetRef>(null)
+
+const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
   title = "AI Assistant", 
   subtitle = "We're here to help!",
   onSendMessage,
@@ -24,6 +24,7 @@ const FloatingChatWidget = forwardRef<{
       isWelcome: true
     }
   ])
+  const [isAttachmentEnabled, setIsAttachmentEnabled] = useState(true)
   const [inputValue, setInputValue] = useState<string>('')
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isTyping, setIsTyping] = useState<boolean>(false)
@@ -219,7 +220,13 @@ const FloatingChatWidget = forwardRef<{
 
   // Expose addBotResponse
   useImperativeHandle(ref, () => ({
-    addBotResponse
+    addBotResponse,
+     get enableAttachment() {
+      return isAttachmentEnabled
+    },
+    set enableAttachment(value: boolean) {
+      setIsAttachmentEnabled(value)
+    }
   }))
 
   // Click outside to close
@@ -325,7 +332,7 @@ const FloatingChatWidget = forwardRef<{
           
           {/* Input Container */}
           <div className="chat-widget__input-container">
-            {attachedFiles.length > 0 && (
+            {attachedFiles.length > 0 && isAttachmentEnabled && (
               <div className="chat-widget__attached-files">
                 {attachedFiles.map((file, index) => (
                   <div key={index} className="chat-widget__attached-file">
@@ -355,7 +362,8 @@ const FloatingChatWidget = forwardRef<{
                 rows={1}
               />
               <div className="chat-widget__input-actions">
-                <button 
+                {isAttachmentEnabled &&(
+                  <button 
                   className="chat-widget__file-button" 
                   onClick={() => fileInputRef.current?.click()}
                   title="Attach file"
@@ -363,6 +371,8 @@ const FloatingChatWidget = forwardRef<{
                 >
                   📎
                 </button>
+                )}
+                
                 <button 
                   className="chat-widget__send-button" 
                   onClick={sendMessage}
