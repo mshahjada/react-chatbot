@@ -7,7 +7,7 @@ function App() {
   const [currentTheme, setCurrentTheme] = useState<'modern' | 'classic' | 'minimal' | 'dark'>('dark')
   const chatWidgetRef = useRef<{ addBotResponse: (content: string) => void, enableAttachment: boolean }>({
   addBotResponse: () => {},
-  enableAttachment: true
+  enableAttachment: false
 })
 
 
@@ -49,7 +49,7 @@ function App() {
       if (data!=null) {
         chatWidgetRef.current?.addBotResponse(data.response);
 
-        if(data.queryStage!=null && data.queryStage?.type === "CLAIM_SUBMISSION" && data.queryStage?.stage==="documents") {
+        if(data.queryStage!=null && data.queryStage?.type === "CLAIM_SUBMISSION" && data.queryStage?.stage==="DocumentsRequired") {
           chatWidgetRef.current!.enableAttachment = true;
         }
         else{
