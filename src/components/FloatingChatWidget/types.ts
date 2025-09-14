@@ -5,6 +5,7 @@ export interface Message {
   files?: File[] | null
   timestamp: Date
   isWelcome?: boolean
+  showSegments?: boolean // Optional: for segment options rendering
 }
 
 export interface ApiResponse {
