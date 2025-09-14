@@ -5,6 +5,7 @@ export interface Message {
   files?: File[] | null
   timestamp: Date
   isWelcome?: boolean
+  userContext?: string // Optional: for user context
   showSegments?: boolean // Optional: for segment options rendering
 }
 
@@ -38,3 +39,14 @@ export interface ChatWidgetProps {
 
 export type Theme = 'modern' | 'classic' | 'minimal' | 'dark'
 export type Position = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+
+export type ContextType = 'POLICY_INFO' | 'CLAIM_INFO' | 'CLAIM_SUBMISSION' | 'PRODUCT_INFO' | 'DEFAULT';
+
+export const UserContext = {
+  PolicyInfo: "POLICY_INFO",
+  ClaimInfo: "CLAIM_INFO",
+  SubmitClaim: "CLAIM_SUBMISSION",
+  ProductInfo: "PRODUCT_INFO",
+  Default: "DEFAULT",
+} as const;
+

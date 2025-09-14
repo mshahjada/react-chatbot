@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle  } from 'react'
-import type { Message, ChatWidgetProps, ChatWidgetRef } from './types'
+import { type Message, type ChatWidgetProps, type ChatWidgetRef, UserContext, type ContextType } from './types'
 import './FloatingChatWidget.css'
 
 // const chatWidgetRef = useRef<ChatWidgetRef>(null)
@@ -26,6 +26,7 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
   ])
   const [isAttachmentEnabled, setIsAttachmentEnabled] = useState(true)
   const [inputValue, setInputValue] = useState<string>('')
+  const [userContext, setUserContext] = useState<ContextType>(UserContext.Default)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isTyping, setIsTyping] = useState<boolean>(false)
   const [messageIdCounter, setMessageIdCounter] = useState<number>(2)
@@ -137,13 +138,15 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
       sender: 'user',
       content: message,
       files: attachedFiles.length > 0 ? [...attachedFiles] : null,
-      timestamp: new Date()
+      timestamp: new Date(),
+      userContext: userContext // Placeholder for future user context
     }
 
     setMessages(prev => [...prev, newUserMessage])
     setMessageIdCounter(prev => prev + 1)
     setInputValue('')
     setAttachedFiles([])
+    setUserContext(UserContext.Default)
 
 
     if (!onSendMessage) return
@@ -278,7 +281,11 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
     if (!option) return;
     // Always keep minimized panel visible after selection
     // Product Info: show product segments as a bot message in chat sequence
+
+    
+
     if (option.toLowerCase().includes('product')) {
+      setUserContext(UserContext.ProductInfo);
       setTimeout(() => {
         setMessages(prev => [
           ...prev,
@@ -302,12 +309,20 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
       return;
     }
     // Only show bot follow-up for specific options, do not show user message
+
+    console.log("Default option clicked:", option);
     let botPrompt = '';
     if (option.toLowerCase().includes('policy')) {
       botPrompt = 'Please provide your Policy Number.';
-    } else if (option.toLowerCase().includes('claim')) {
+      setUserContext(UserContext.PolicyInfo);
+    } else if (option.toLowerCase().includes('claim info')) {
       botPrompt = 'Please provide your Claim Number.';
+      setUserContext(UserContext.ClaimInfo);
+    }else if (option.toLowerCase().includes('submit claim')) {
+      botPrompt = 'Kindly provide your medical details along with your policy number.';
+      setUserContext(UserContext.SubmitClaim);
     }
+
     if (botPrompt) {
       setTimeout(() => {
         setMessages(prev => [
