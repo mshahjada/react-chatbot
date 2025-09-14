@@ -10,14 +10,24 @@ export interface Message {
 export interface ApiResponse {
   response: string,
   source: string,
-  queryStage: object
+  queryStage: QueryStage
   processedAt?: Date
 }
 
+interface QueryStage {
+  type: string
+  stage: string
+}
+
+
+export type ChatWidgetRef = {
+  addBotResponse: (content: string) => void
+  enableAttachment: boolean
+}
 export interface ChatWidgetProps {
   title?: string
   subtitle?: string
-  onSendMessage?: (message: Message) => void
+  onSendMessage?: (message: Message) => void,
   className?: string
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
   primaryColor?: string

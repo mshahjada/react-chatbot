@@ -5,44 +5,57 @@ import './App.css'
 
 function App() {
   const [currentTheme, setCurrentTheme] = useState<'modern' | 'classic' | 'minimal' | 'dark'>('dark')
-  const chatWidgetRef = useRef<{ addBotResponse: (content: string) => void }>(null)
+  const chatWidgetRef = useRef<{ addBotResponse: (content: string) => void, enableAttachment: boolean }>({
+  addBotResponse: () => {},
+  enableAttachment: false
+})
+
 
   const handleSendMessage = async (message: Message): Promise<void> => {
     console.log('Message sent:', message)
     
-    // fetch('https://localhost:7166/api/chat', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ Query: message.content }),
-    // })
-
     try {
-      const response = await fetch('https://localhost:7166/api/chat', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
+      // const response = await fetch('https://localhost:7166/api/chat', {
+      //   method: 'POST',
+      //   headers: { 
+      //     'Content-Type': 'application/json',
           // Add CORS headers if needed
           // 'Access-Control-Allow-Origin': '*',
           // Add auth headers if needed
           // 'Authorization': `Bearer ${yourAuthToken}`,
-        },
-        body: JSON.stringify({ Query: message.content })
+      //   },
+      //   body: JSON.stringify({ Query: message.content })
+      // })
+
+      const formData = new FormData()
+      formData.append("query", message.content)
+
+      // if you have multiple files
+      message.files?.forEach(file => {
+        formData.append("files", file)  // "files" must match backend key
       })
 
-      debugger;;
+      const response = await fetch("https://localhost:7166/api/chat", {
+        method: "POST",
+        body: formData
+      })
+
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data: ApiResponse = await response.json()
-      console.log('API Response:', data)
-      
-      // Handle successful response
+      const data: ApiResponse = await response.json();
       if (data!=null) {
-        // Add the bot response to the chat
-        chatWidgetRef.current?.addBotResponse(data.response)
+        chatWidgetRef.current?.addBotResponse(data.response);
+
+        if(data.queryStage!=null && data.queryStage?.type === "CLAIM_SUBMISSION" && data.queryStage?.stage==="DocumentsRequired") {
+          chatWidgetRef.current!.enableAttachment = true;
+        }
+        else{
+           chatWidgetRef.current!.enableAttachment = false;
+        }
       } else {
-        // Handle API-level errors
         chatWidgetRef.current?.addBotResponse(
          'Sorry, I encountered an error processing your message.'
         )
@@ -116,6 +129,7 @@ function App() {
 
       {/* Chat Widget */}
       <FloatingChatWidget
+        ref={chatWidgetRef} 
         title="Hello! I'm your smart assistant"
         subtitle="Ask me anything related to policy & claims!"
         onSendMessage={handleSendMessage}

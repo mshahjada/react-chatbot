@@ -1,8 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
-import type { Message, ChatWidgetProps } from './types'
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle  } from 'react'
+import type { Message, ChatWidgetProps, ChatWidgetRef } from './types'
 import './FloatingChatWidget.css'
 
-const FloatingChatWidget: React.FC<ChatWidgetProps> = ({ 
+// const chatWidgetRef = useRef<ChatWidgetRef>(null)
+
+const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
   title = "AI Assistant", 
   subtitle = "We're here to help!",
   onSendMessage,
@@ -11,7 +13,7 @@ const FloatingChatWidget: React.FC<ChatWidgetProps> = ({
   primaryColor = "#6366f1",
   iconSize = 60,
   theme = "modern"
-}) => {
+}, ref) => {
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -22,6 +24,7 @@ const FloatingChatWidget: React.FC<ChatWidgetProps> = ({
       isWelcome: true
     }
   ])
+  const [isAttachmentEnabled, setIsAttachmentEnabled] = useState(true)
   const [inputValue, setInputValue] = useState<string>('')
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isTyping, setIsTyping] = useState<boolean>(false)
@@ -105,6 +108,20 @@ const FloatingChatWidget: React.FC<ChatWidgetProps> = ({
     return responses[Math.floor(Math.random() * responses.length)]
   }, [])
 
+  // Add this inside the component before return
+  const addBotResponse = useCallback((content: string) => {
+  setMessages(prev => [
+    ...prev,
+      {
+        id: messageIdCounter,
+        sender: 'bot',
+        content,
+        timestamp: new Date()
+      }
+    ])
+    setMessageIdCounter(prev => prev + 1)
+  }, [messageIdCounter])
+
   // Send message
   const sendMessage = useCallback(async () => {
 
@@ -126,28 +143,47 @@ const FloatingChatWidget: React.FC<ChatWidgetProps> = ({
     setInputValue('')
     setAttachedFiles([])
 
-    if (onSendMessage) {
-      onSendMessage(newUserMessage)
-    }
 
+    if (!onSendMessage) return
+
+    // 2️⃣ Show typing indicator while waiting for API
     setIsTyping(true)
 
-    setTimeout(() => {
-      setIsTyping(false)
-      const botResponse: Message = {
-        id: messageIdCounter + 1,
-        sender: 'bot',
-        content: generateBotResponse(message),
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, botResponse])
-      setMessageIdCounter(prev => prev + 2)
+    // 3️⃣ Await API response from App.tsx
+    await onSendMessage(newUserMessage)
+
+    // 4️⃣ Hide typing indicator
+    setIsTyping(false)
+
+    // if (onSendMessage) {
+    //   setIsTyping(true)
+    //   onSendMessage(newUserMessage)
+    //   setIsTyping(false)
+    // }
+
+
+    
+
+   
+
+    // setTimeout(() => {
+    //   setIsTyping(false)
+    //   const botResponse: Message = {
+    //     id: messageIdCounter + 1,
+    //     sender: 'bot',
+    //     content: generateBotResponse(message),
+    //     timestamp: new Date()
+    //   }
+    //   setMessages(prev => [...prev, botResponse])
+    //   setMessageIdCounter(prev => prev + 2)
       
-      if (!isOpen) {
-        setHasNewMessage(true)
-      }
-    }, 1000 + Math.random() * 2000)
-  }, [inputValue, attachedFiles, messageIdCounter, onSendMessage, generateBotResponse, isOpen])
+    //   if (!isOpen) {
+    //     setHasNewMessage(true)
+    //   }
+    // }, 1000 + Math.random() * 2000)
+
+
+  }, [inputValue, attachedFiles, messageIdCounter, onSendMessage]) //generateBotResponse, isOpen
 
   // Handle key press
   const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -181,6 +217,17 @@ const FloatingChatWidget: React.FC<ChatWidgetProps> = ({
       }, 300)
     }
   }, [isOpen])
+
+  // Expose addBotResponse
+  useImperativeHandle(ref, () => ({
+    addBotResponse,
+     get enableAttachment() {
+      return isAttachmentEnabled
+    },
+    set enableAttachment(value: boolean) {
+      setIsAttachmentEnabled(value)
+    }
+  }))
 
   // Click outside to close
   useEffect(() => {
@@ -285,7 +332,7 @@ const FloatingChatWidget: React.FC<ChatWidgetProps> = ({
           
           {/* Input Container */}
           <div className="chat-widget__input-container">
-            {attachedFiles.length > 0 && (
+            {attachedFiles.length > 0 && isAttachmentEnabled && (
               <div className="chat-widget__attached-files">
                 {attachedFiles.map((file, index) => (
                   <div key={index} className="chat-widget__attached-file">
@@ -315,7 +362,8 @@ const FloatingChatWidget: React.FC<ChatWidgetProps> = ({
                 rows={1}
               />
               <div className="chat-widget__input-actions">
-                <button 
+                {isAttachmentEnabled &&(
+                  <button 
                   className="chat-widget__file-button" 
                   onClick={() => fileInputRef.current?.click()}
                   title="Attach file"
@@ -323,6 +371,8 @@ const FloatingChatWidget: React.FC<ChatWidgetProps> = ({
                 >
                   📎
                 </button>
+                )}
+                
                 <button 
                   className="chat-widget__send-button" 
                   onClick={sendMessage}
@@ -348,6 +398,6 @@ const FloatingChatWidget: React.FC<ChatWidgetProps> = ({
       )}
     </div>
   )
-}
+})
 
 export default FloatingChatWidget
