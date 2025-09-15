@@ -7,6 +7,7 @@ export interface Message {
   isWelcome?: boolean
   userContext?: string // Optional: for user context
   showSegments?: boolean // Optional: for segment options rendering
+  hasProducts?: boolean // Optional: indicates if product segments are available
 }
 
 export interface ApiResponse {
