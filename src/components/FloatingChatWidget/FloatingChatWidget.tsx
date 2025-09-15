@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle  } from 'react'
-import type { Message, ChatWidgetProps, ChatWidgetRef } from './types'
+import { type Message, type ChatWidgetProps, type ChatWidgetRef, UserContext, type ContextType } from './types'
 import './FloatingChatWidget.css'
 
 // const chatWidgetRef = useRef<ChatWidgetRef>(null)
@@ -26,11 +26,14 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
   ])
   const [isAttachmentEnabled, setIsAttachmentEnabled] = useState(true)
   const [inputValue, setInputValue] = useState<string>('')
+  const [userContext, setUserContext] = useState<ContextType>(UserContext.Default)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isTyping, setIsTyping] = useState<boolean>(false)
   const [messageIdCounter, setMessageIdCounter] = useState<number>(2)
   const [hasNewMessage, setHasNewMessage] = useState<boolean>(false)
   const [isMinimizing, setIsMinimizing] = useState<boolean>(false)
+  // State for showing product segments
+  const [pendingSegments, setPendingSegments] = useState<string[] | null>(null)
 
   const chatMessagesRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -135,13 +138,15 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
       sender: 'user',
       content: message,
       files: attachedFiles.length > 0 ? [...attachedFiles] : null,
-      timestamp: new Date()
+      timestamp: new Date(),
+      userContext: userContext // Placeholder for future user context
     }
 
     setMessages(prev => [...prev, newUserMessage])
     setMessageIdCounter(prev => prev + 1)
     setInputValue('')
     setAttachedFiles([])
+    setUserContext(UserContext.Default)
 
 
     if (!onSendMessage) return
@@ -260,6 +265,113 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
 
   const canSend = inputValue.trim() || attachedFiles.length > 0
 
+
+  // Default options for the chat window
+  const defaultOptions = [
+    'Policy Info',
+    'Claim Info',
+    'Submit Claim',
+    'Product Info'
+  ]
+
+
+
+  // Handler for clicking a default option
+  const handleDefaultOptionClick = (option: string) => {
+    if (!option) return;
+    // Always keep minimized panel visible after selection
+    // Product Info: show product segments as a bot message in chat sequence
+
+    
+
+    if (option.toLowerCase().includes('product')) {
+      setUserContext(UserContext.ProductInfo);
+      setTimeout(() => {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: messageIdCounter,
+            sender: 'bot',
+            content: 'Please select a product segment:',
+            timestamp: new Date(),
+            // Custom property to trigger segment options rendering
+            showSegments: true
+          }
+        ])
+        setMessageIdCounter(prev => prev + 1)
+        setPendingSegments([
+          'Savings & Investment',
+          'Health & Protection Plan',
+          'Child Education Plan'
+        ])
+      }, 200)
+      // Do NOT hide or permanently collapse the options panel
+      return;
+    }
+    // Only show bot follow-up for specific options, do not show user message
+
+    console.log("Default option clicked:", option);
+    let botPrompt = '';
+    if (option.toLowerCase().includes('policy')) {
+      botPrompt = 'Please provide your Policy Number.';
+      setUserContext(UserContext.PolicyInfo);
+    } else if (option.toLowerCase().includes('claim info')) {
+      botPrompt = 'Please provide your Claim Number.';
+      setUserContext(UserContext.ClaimInfo);
+    }else if (option.toLowerCase().includes('submit claim')) {
+      botPrompt = 'Kindly provide your medical details along with your policy number.';
+      setUserContext(UserContext.SubmitClaim);
+    }
+
+    if (botPrompt) {
+      setTimeout(() => {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: messageIdCounter,
+            sender: 'bot',
+            content: botPrompt,
+            timestamp: new Date()
+          }
+        ])
+        setMessageIdCounter(prev => prev + 1)
+      }, 300)
+    }
+    // Do NOT hide or permanently collapse the options panel
+    // The minimized panel and expand button should always remain visible
+  }
+
+  // Handler for clicking a product segment
+  const handleSegmentClick = async (segment: string) => {
+    setPendingSegments(null)
+    // Show user selection in chat
+    setMessages(prev => [
+      ...prev,
+      {
+        id: messageIdCounter,
+        sender: 'user',
+        content: segment,
+        timestamp: new Date()
+      }
+    ])
+    setMessageIdCounter(prev => prev + 1)
+    // Simulate API call (replace with real API call as needed)
+    setIsTyping(true)
+    setTimeout(() => {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: messageIdCounter + 1,
+          sender: 'bot',
+          content: `Details for "${segment}" will be fetched from the API here.`,
+          timestamp: new Date()
+        }
+      ])
+      setMessageIdCounter(prev => prev + 1)
+      setIsTyping(false)
+    }, 1000)
+  }
+
   return (
     <div 
       ref={widgetRef}
@@ -296,26 +408,56 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
               ✕
             </button>
           </div>
-          
+
+          {/* Default Options */}
+          <div className="chat-widget__default-options">
+            {defaultOptions.map((option, idx) => (
+              <button
+                key={option}
+                className="chat-widget__default-option"
+                onClick={() => handleDefaultOptionClick(option)}
+                type="button"
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+
           {/* Messages */}
           <div className="chat-widget__messages" ref={chatMessagesRef}>
-            {messages.map((message) => (
-              <div key={message.id} className={`chat-widget__message chat-widget__message--${message.sender}`}>
-                <div className="chat-widget__message-avatar">
-                  {message.sender === 'user' ? 'U' : 'AI'}
+            {messages.map((message, idx) => (
+              <React.Fragment key={message.id}>
+                <div className={`chat-widget__message chat-widget__message--${message.sender}`}>
+                  <div className="chat-widget__message-avatar">
+                    {message.sender === 'user' ? 'U' : 'AI'}
+                  </div>
+                  <div className="chat-widget__message-content">
+                    {message.content}
+                    {message.files && message.files.map((file, index) => (
+                      <div key={index} className="chat-widget__file-attachment">
+                        <span className="chat-widget__file-icon">📄</span>
+                        <span>{file.name} ({formatFileSize(file.size)})</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="chat-widget__message-content">
-                  {message.content}
-                  {message.files && message.files.map((file, index) => (
-                    <div key={index} className="chat-widget__file-attachment">
-                      <span className="chat-widget__file-icon">📄</span>
-                      <span>{file.name} ({formatFileSize(file.size)})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                {/* Render segment options as buttons after the bot's segment prompt */}
+                {message.showSegments && pendingSegments && (
+                  <div className="chat-widget__segment-options">
+                    {pendingSegments.map((segment) => (
+                      <button
+                        key={segment}
+                        className="chat-widget__segment-option"
+                        onClick={() => handleSegmentClick(segment)}
+                        type="button"
+                      >
+                        {segment}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </React.Fragment>
             ))}
-            
             {isTyping && (
               <div className="chat-widget__message chat-widget__message--bot">
                 <div className="chat-widget__message-avatar">AI</div>

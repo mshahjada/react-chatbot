@@ -15,28 +15,19 @@ function App() {
     console.log('Message sent:', message)
     
     try {
-      // const response = await fetch('https://localhost:7166/api/chat', {
-      //   method: 'POST',
-      //   headers: { 
-      //     'Content-Type': 'application/json',
-          // Add CORS headers if needed
-          // 'Access-Control-Allow-Origin': '*',
-          // Add auth headers if needed
-          // 'Authorization': `Bearer ${yourAuthToken}`,
-      //   },
-      //   body: JSON.stringify({ Query: message.content })
-      // })
-
       const formData = new FormData()
       formData.append("query", message.content)
 
       // if you have multiple files
       message.files?.forEach(file => {
-        formData.append("files", file)  // "files" must match backend key
+        formData.append("files", file) 
       })
 
       const response = await fetch("https://localhost:7166/api/chat", {
         method: "POST",
+        headers: {
+          'x-user-context': message.userContext || 'DEFAULT' // Default context if none provided
+        },
         body: formData
       })
 
@@ -63,8 +54,6 @@ function App() {
       
     } catch (error) {
       console.error('Error sending message to API:', error)
-      
-      // Handle network/connection errors
       let errorMessage = 'Sorry, I\'m having trouble connecting right now. Please try again.'
       
       if (error instanceof TypeError) {
@@ -72,8 +61,6 @@ function App() {
       } else if (error instanceof Error) {
         errorMessage = `Connection error: ${error.message}`
       }
-      
-      //chatWidgetRef.current?.addBotResponse(`❌ ${errorMessage}`)
     }
 
   }
