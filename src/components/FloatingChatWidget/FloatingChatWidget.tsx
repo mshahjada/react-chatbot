@@ -35,6 +35,8 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
   // State for showing product segments
   const [pendingSegments, setPendingSegments] = useState<string[] | null>(null)
 
+  const [productSegments, setProductSegments] = useState<object[] | null>(null)
+
   const chatMessagesRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -113,6 +115,8 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
 
   // Add this inside the component before return
   const addBotResponse = useCallback((content: string) => {
+
+  console.log(messageIdCounter)
   setMessages(prev => [
     ...prev,
       {
@@ -277,40 +281,58 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
 
 
   // Handler for clicking a default option
-  const handleDefaultOptionClick = (option: string) => {
+  const handleDefaultOptionClick = async (option: string) => {
     if (!option) return;
-    // Always keep minimized panel visible after selection
-    // Product Info: show product segments as a bot message in chat sequence
-
-    
 
     if (option.toLowerCase().includes('product')) {
       setUserContext(UserContext.ProductInfo);
-      setTimeout(() => {
+      setIsTyping(true);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: messageIdCounter,
+          sender: 'bot',
+          content: 'Fetching product categories...',
+          timestamp: new Date(),
+        }
+      ]);
+      setMessageIdCounter(prev => prev + 1);
+      try {
+        const response = await fetch('https://localhost:7166/api/product-categories');
+
+        let categories: string[] = [];
+        if (response.ok) {
+          categories = await response.json();
+        }
+
         setMessages(prev => [
-          ...prev,
+          ...prev.slice(0, -1), // Remove the loading message
           {
             id: messageIdCounter,
             sender: 'bot',
             content: 'Please select a product segment:',
             timestamp: new Date(),
-            // Custom property to trigger segment options rendering
             showSegments: true
           }
-        ])
-        setMessageIdCounter(prev => prev + 1)
-        setPendingSegments([
-          'Savings & Investment',
-          'Health & Protection Plan',
-          'Child Education Plan'
-        ])
-      }, 200)
-      // Do NOT hide or permanently collapse the options panel
+        ]);
+        setMessageIdCounter(prev => prev + 1);
+        setPendingSegments(categories);
+      } catch (e) {
+        setMessages(prev => [
+          ...prev.slice(0, -1),
+          {
+            id: messageIdCounter,
+            sender: 'bot',
+            content: 'Failed to fetch product categories. Please try again later.',
+            timestamp: new Date(),
+          }
+        ]);
+        setMessageIdCounter(prev => prev + 1);
+        setPendingSegments(null);
+      }
+      setIsTyping(false);
       return;
     }
-    // Only show bot follow-up for specific options, do not show user message
-
-    console.log("Default option clicked:", option);
     let botPrompt = '';
     if (option.toLowerCase().includes('policy')) {
       botPrompt = 'Please provide your Policy Number.';
@@ -318,11 +340,10 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
     } else if (option.toLowerCase().includes('claim info')) {
       botPrompt = 'Please provide your Claim Number.';
       setUserContext(UserContext.ClaimInfo);
-    }else if (option.toLowerCase().includes('submit claim')) {
+    } else if (option.toLowerCase().includes('submit claim')) {
       botPrompt = 'Kindly provide your medical details along with your policy number.';
       setUserContext(UserContext.SubmitClaim);
     }
-
     if (botPrompt) {
       setTimeout(() => {
         setMessages(prev => [
@@ -337,14 +358,12 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
         setMessageIdCounter(prev => prev + 1)
       }, 300)
     }
-    // Do NOT hide or permanently collapse the options panel
-    // The minimized panel and expand button should always remain visible
   }
 
   // Handler for clicking a product segment
   const handleSegmentClick = async (segment: string) => {
-    setPendingSegments(null)
-    // Show user selection in chat
+    console.log(segment)
+    //setPendingSegments(null)
     setMessages(prev => [
       ...prev,
       {
@@ -355,22 +374,84 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
       }
     ])
     setMessageIdCounter(prev => prev + 1)
-    // Simulate API call (replace with real API call as needed)
     setIsTyping(true)
-    setTimeout(() => {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: messageIdCounter + 1,
-          sender: 'bot',
-          content: `Details for "${segment}" will be fetched from the API here.`,
-          timestamp: new Date()
+    try {
+      debugger;
+        // Replace this URL with your real API endpoint
+        const response = await fetch(`https://localhost:7166/api/product-list?query=${encodeURIComponent(segment)}`);
+
+        let products: object[] = [];
+        if (response.ok) {
+          products = await response.json();
         }
-      ])
-      setMessageIdCounter(prev => prev + 1)
-      setIsTyping(false)
-    }, 1000)
+        
+        setMessages(prev => [
+          ...prev,
+          {
+            id: messageIdCounter,
+            sender: 'bot',
+            content: 'Please select a product for details:',
+            timestamp: new Date(),
+            hasProducts: true
+          }
+        ]);
+        setMessageIdCounter(prev => prev + 1);
+        setProductSegments(products);
+      } catch (e) {
+        setMessages(prev => [
+          ...prev.slice(0, -1),
+          {
+            id: messageIdCounter,
+            sender: 'bot',
+            content: 'Failed to fetch product info. Please try again later.',
+            timestamp: new Date(),
+          }
+        ]);
+        setMessageIdCounter(prev => prev + 1);
+        //setPendingSegments(null);
+      }
+      setIsTyping(false);
   }
+
+  // Handler for clicking a product information
+  const handleProductClick = async (product: any) => {
+
+    console.log(product)
+
+    setMessages(prev => [
+      ...prev,
+      {
+        id: messageIdCounter,
+        sender: 'user',
+        content: product.productName,
+        timestamp: new Date()
+      }
+    ])
+    setMessageIdCounter(prev => prev + 1)
+    setIsTyping(true)
+
+    const response = await fetch(`https://localhost:7166/api/product-by-code?code=${encodeURIComponent(product.productCode)}`);
+    debugger;
+    let content: string = "";
+    if (response.ok) {
+      content = await response.json();
+    }
+
+ 
+    setMessages(prev => [
+      ...prev,
+      {
+        id: messageIdCounter,
+        sender: 'bot',
+        content: content,
+        timestamp: new Date(),
+        hasProducts: true
+      }
+    ]);
+    setMessageIdCounter(prev => prev + 1);
+    setProductSegments(null);
+    setIsTyping(false);   
+  };
 
   return (
     <div 
@@ -411,11 +492,11 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
 
           {/* Default Options */}
           <div className="chat-widget__default-options">
-            {defaultOptions.map((option, idx) => (
+            {defaultOptions.map((option) => (
               <button
                 key={option}
                 className="chat-widget__default-option"
-                onClick={() => handleDefaultOptionClick(option)}
+                onClick={async () => { await handleDefaultOptionClick(option); }}
                 type="button"
               >
                 {option}
@@ -452,6 +533,21 @@ const FloatingChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
                         type="button"
                       >
                         {segment}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {message.hasProducts && productSegments && (
+                  <div className="chat-widget__segment-options">
+                    {productSegments.map((p:any) => (
+                      <button
+                        key={p.productCode}
+                        className="chat-widget__segment-option"
+                        onClick={() => handleProductClick(p)}
+                        type="button"
+                      >
+                        {p.productName}
                       </button>
                     ))}
                   </div>
